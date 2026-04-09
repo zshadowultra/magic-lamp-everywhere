@@ -52,10 +52,9 @@ qt6_wrap_ui(genieopen_config_SRCS genieopen_config.ui)
 
 add_library(kwin_genieopen_config MODULE
     genieopen_config.cpp
+    genieopen_config.json
     ${genieopen_config_SRCS}
 )
-
-set_source_files_properties(genieopen_config.cpp PROPERTIES SKIP_AUTOMOC ON)
 
 target_include_directories(kwin_genieopen_config PRIVATE
     /usr/include/kwin

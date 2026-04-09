@@ -26,8 +26,8 @@ void GenieOpenEffectConfig::save()
     iface.call(QStringLiteral("reconfigureEffect"), QStringLiteral("kwin_genie_open"));
 }
 
-K_PLUGIN_CLASS(GenieOpenEffectConfig)
+K_PLUGIN_CLASS_WITH_JSON(GenieOpenEffectConfig, "genieopen_config.json")
 
 } // namespace KWin
 
-#include "moc_genieopen_config.cpp"
+#include "genieopen_config.moc"
