@@ -1,74 +1,60 @@
-# Genie Open Effect for KWin
+# Magic Lamp Everywhere
 
-A KWin effect that applies a macOS-style genie animation when windows open, triggered by the `windowAdded` signal.
+A KWin effect that plays the **Magic Lamp / Genie animation when apps open** — not just when minimizing.
 
-## Quick Install (Recommended)
+Based on KWin's built-in Magic Lamp effect. Works on **KDE Plasma 6** (Wayland & X11).
+
+![KDE Plasma 6](https://img.shields.io/badge/KDE%20Plasma-6-blue)
+
+---
+
+## What it does
+
+- Every app that opens animates with the genie effect from its taskbar icon
+- Apps without a taskbar icon animate from the application launcher button
+- Optionally: closing an app collapses it toward your cursor (toggle in settings)
+
+---
+
+## Install
 
 ```bash
-cd /home/zshadowultra/Projects/genie-kwin-open-close
+git clone https://github.com/zshadowultra/magic-lamp-everywhere.git
+cd magic-lamp-everywhere
+chmod +x install.sh
 ./install.sh
 ```
 
-The script will:
-1. Install required dependencies (asks for sudo password)
-2. Build the effect
-3. Install it system-wide
-4. Enable it automatically
+Then **log out and log back in** (or run `kwin_wayland --replace & disown`).
 
-## Manual Installation
+---
 
-If you prefer manual steps:
+## Configure
 
-```bash
-# Install dependencies (Ubuntu/Debian)
-sudo apt install cmake extra-cmake-modules build-essential \
-    libkf6config-dev libkf6coreaddons-dev libkf6windowsystem-dev \
-    kwin-dev qt6-base-dev
+Go to **System Settings → Desktop Effects → Magic Lamp Everywhere** and click the **gear icon**.
 
-# Build
-mkdir build && cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
+| Option | Description |
+|--------|-------------|
+| Animation duration | Speed in ms. `0` = default (250ms). Higher = slower. |
+| Animate window closing | When enabled, closing a window collapses it toward your cursor. |
 
-# Install
-sudo make install
-
-# Enable
-kwriteconfig6 --file kwinrc --group Plugins --key kwin_genie_openEnabled true
-qdbus org.kde.KWin /KWin reconfigure
-```
+---
 
 ## Uninstall
 
 ```bash
-sudo rm /usr/lib/*/qt6/plugins/kwin/effects/plugins/kwin_genie_open.so
-sudo rm -rf /usr/share/kwin/effects/kwin_genie_open
+sudo rm /usr/lib/qt6/plugins/kwin/effects/plugins/kwin_genie_open.so
+sudo rm /usr/lib/qt6/plugins/kwin/effects/configs/kwin_genieopen_config.so
 kwriteconfig6 --file kwinrc --group Plugins --key kwin_genie_openEnabled false
-qdbus org.kde.KWin /KWin reconfigure
 ```
 
-## How it works
+Then log out and back in.
 
-- Listens to `windowAdded` signal
-- Filters to only animate normal windows
-- Creates 40x40 mesh grid for smooth deformation
-- Warps window from taskbar icon position (or bottom center) upward
-- Bottom of window narrows toward icon while top stays wide
-- Uses sine easing curve for smooth animation
-- Duration: 250ms
+---
 
-## Troubleshooting
+## Requirements
 
-**Effect doesn't appear:**
-- Check if enabled: System Settings → Window Management → Desktop Effects
-- Restart KWin: `kwin_x11 --replace &` or `kwin_wayland --replace &`
-- Check logs: `journalctl -f | grep kwin`
+- KDE Plasma 6 (KWin 6.x)
+- CMake, Qt6, KF6
 
-**Build errors:**
-- Make sure you're on KDE Plasma 6 (not Plasma 5)
-- Install all dependencies listed above
-
-## Based on
-
-- KWin Magic Lamp effect
-- Yet Another Magic Lamp effect
+> **Not compatible with Plasma 5.**
