@@ -339,9 +339,9 @@ void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
 {
     if (!m_closeEnabled || effects->activeFullScreenEffect())
         return;
-    if (!w->isNormalWindow() && !w->isDialog())
+    if (w->isDesktop() || w->isDock() || w->isSplash())
         return;
-    if (w->isDesktop() || w->isDock() || w->isSplash() || w->isPopupWindow())
+    if (w->isTooltip() || w->isComboBox() || w->isDropdownMenu() || w->isPopupMenu())
         return;
     if (w->width() < 100 || w->height() < 100)
         return;
