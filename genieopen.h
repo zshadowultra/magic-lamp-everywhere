@@ -16,6 +16,7 @@ namespace KWin
 struct GenieAnimation {
     EffectWindowVisibleRef visibleRef;
     TimeLine timeLine;
+    bool isClose = false;
 };
 
 class GenieOpenEffect : public OffscreenEffect
@@ -38,6 +39,7 @@ protected:
 
 private Q_SLOTS:
     void slotWindowAdded(EffectWindow *w);
+    void slotWindowClosed(EffectWindow *w);
     void slotWindowDeleted(EffectWindow *w);
 
 private:
@@ -47,6 +49,7 @@ private:
     QHash<EffectWindow *, GenieAnimation> m_animations;
     QRect m_launcherRect;
     QRect m_sysTrayRect;
+    bool m_closeEnabled = false;
 };
 
 } // namespace KWin

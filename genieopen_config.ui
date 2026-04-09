@@ -3,7 +3,7 @@
  <class>KWin::GenieOpenEffectConfigForm</class>
  <widget class="QWidget" name="KWin::GenieOpenEffectConfigForm">
   <property name="geometry">
-   <rect><x>0</x><y>0</y><width>400</width><height>100</height></rect>
+   <rect><x>0</x><y>0</y><width>400</width><height>120</height></rect>
   </property>
   <layout class="QFormLayout" name="formLayout">
    <item row="0" column="0">
@@ -24,6 +24,11 @@
      <property name="suffix"><string> ms</string></property>
      <property name="maximum"><number>5000</number></property>
      <property name="singleStep"><number>50</number></property>
+    </widget>
+   </item>
+   <item row="1" column="0" colspan="2">
+    <widget class="QCheckBox" name="kcfg_CloseAnimation">
+     <property name="text"><string>Animate window closing (collapses to cursor)</string></property>
     </widget>
    </item>
   </layout>

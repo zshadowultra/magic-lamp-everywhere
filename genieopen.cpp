@@ -18,6 +18,7 @@ GenieOpenEffect::GenieOpenEffect()
 {
     reconfigure(ReconfigureAll);
     connect(effects, &EffectsHandler::windowAdded,   this, &GenieOpenEffect::slotWindowAdded);
+    connect(effects, &EffectsHandler::windowClosed,  this, &GenieOpenEffect::slotWindowClosed);
     connect(effects, &EffectsHandler::windowDeleted, this, &GenieOpenEffect::slotWindowDeleted);
     setVertexSnappingMode(RenderGeometry::VertexSnappingMode::None);
 }
@@ -60,6 +61,8 @@ void GenieOpenEffect::reconfigure(ReconfigureFlags)
     int sw = cfg.readEntry("SysTrayW", 296);
     int sh = cfg.readEntry("SysTrayH", 30);
     m_sysTrayRect = QRect(sx, sy, sw, sh);
+
+    m_closeEnabled = cfg.readEntry("CloseAnimation", false);
 }
 
 void GenieOpenEffect::prePaintScreen(ScreenPrePaintData &data, std::chrono::milliseconds presentTime)
@@ -94,7 +97,30 @@ void GenieOpenEffect::apply(EffectWindow *w, int mask, WindowPaintData &data, Wi
 
     IconPosition position = Bottom;
 
-    if (!icon.isValid()) {
+    // For close animations, collapse toward cursor position
+    if (it->isClose) {
+        QPoint pt = cursorPos().toPoint();
+        if (geo.contains(pt)) {
+            const int d[2][2] = {{pt.x() - geo.x(), geo.right() - pt.x()},
+                                 {pt.y() - geo.y(), geo.bottom() - pt.y()}};
+            int di = d[1][0]; position = Top;
+            if (d[0][0] < di) { di = d[0][0]; position = Left; }
+            if (d[1][1] < di) { di = d[1][1]; position = Bottom; }
+            if (d[0][1] < di) { position = Right; }
+            switch (position) {
+            case Top:    pt.setY(geo.y());      break;
+            case Left:   pt.setX(geo.x());      break;
+            case Bottom: pt.setY(geo.bottom()); break;
+            case Right:  pt.setX(geo.right());  break;
+            }
+        } else {
+            if      (pt.y() < geo.y())      position = Top;
+            else if (pt.x() < geo.x())      position = Left;
+            else if (pt.y() > geo.bottom()) position = Bottom;
+            else                            position = Right;
+        }
+        icon = QRect(pt, QSize(0, 0));
+    } else if (!icon.isValid()) {
         // Choose origin based on window type
         if (w->isNotification() || w->isCriticalNotification() || w->isOnScreenDisplay()) {
             // Notifications come from system tray
@@ -302,6 +328,34 @@ void GenieOpenEffect::slotWindowAdded(EffectWindow *w)
     GenieAnimation &anim = m_animations[w];
     anim.visibleRef = EffectWindowVisibleRef(w, EffectWindow::PAINT_DISABLED_BY_MINIMIZE);
     anim.timeLine.setDirection(TimeLine::Backward);
+    anim.timeLine.setDuration(m_duration);
+    anim.timeLine.setEasingCurve(QEasingCurve::Linear);
+
+    redirect(w);
+    effects->addRepaintFull();
+}
+
+void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
+{
+    if (!m_closeEnabled || effects->activeFullScreenEffect())
+        return;
+    if (!w->isNormalWindow() && !w->isDialog())
+        return;
+    if (w->isDesktop() || w->isDock() || w->isSplash() || w->isPopupWindow())
+        return;
+    if (w->width() < 100 || w->height() < 100)
+        return;
+
+    // Remove any existing open animation for this window
+    if (m_animations.contains(w)) {
+        unredirect(w);
+        m_animations.remove(w);
+    }
+
+    GenieAnimation &anim = m_animations[w];
+    anim.isClose = true;
+    anim.visibleRef = EffectWindowVisibleRef(w, EffectWindow::PAINT_DISABLED);
+    anim.timeLine.setDirection(TimeLine::Forward);
     anim.timeLine.setDuration(m_duration);
     anim.timeLine.setEasingCurve(QEasingCurve::Linear);
 
