@@ -1,0 +1,16 @@
+{
+    "KPackageStructure": "KWin/Effect",
+    "KPlugin": {
+        "Name": "Genie Open Effect",
+        "Description": "Genie animation when windows open",
+        "Category": "Appearance",
+        "Authors": [
+            {
+                "Name": "Your Name"
+            }
+        ],
+        "Version": "1.0",
+        "Id": "kwin_genie_open",
+        "EnabledByDefault": true
+    }
+}
