@@ -120,12 +120,15 @@ void GenieOpenEffect::apply(EffectWindow *w, int mask, WindowPaintData &data, Wi
                 }
             }
         } else {
-            QRectF iconScreen = effects->clientArea(ScreenArea, icon.topLeft(), effects->currentDesktop());
-            QRectF rect = iconScreen.intersected(icon);
-            if      (rect.x() == iconScreen.x())                                       position = Left;
-            else if (rect.x() + rect.width()  == iconScreen.x() + iconScreen.width())  position = Right;
-            else if (rect.y() == iconScreen.y())                                       position = Top;
-            else                                                                        position = Bottom;
+            // No panel found — determine direction by where icon is relative to window
+            if (icon.center().y() > geo.center().y())
+                position = Bottom;
+            else if (icon.center().y() < geo.center().y())
+                position = Top;
+            else if (icon.center().x() < geo.center().x())
+                position = Left;
+            else
+                position = Right;
         }
     }
 
