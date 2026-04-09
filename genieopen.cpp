@@ -34,11 +34,24 @@ void GenieOpenEffect::reconfigure(ReconfigureFlags)
     int ms = qBound(50, cfg.readEntry("Duration", 250), 2000);
     m_duration = std::chrono::milliseconds(static_cast<int>(animationTime(std::chrono::milliseconds(ms))));
 
-    // Launcher rect (app launcher button - "the bottle")
-    int lx = cfg.readEntry("LauncherX", 16);
-    int ly = cfg.readEntry("LauncherY", 12);
+    // Launcher rect — use configured value, or auto-detect from leftmost dock position
+    int lx = cfg.readEntry("LauncherX", -1);
+    int ly = cfg.readEntry("LauncherY", -1);
     int lw = cfg.readEntry("LauncherW", 38);
     int lh = cfg.readEntry("LauncherH", 38);
+    if (lx < 0 || ly < 0) {
+        // Auto-detect: find the dock and use its left edge at screen bottom
+        for (EffectWindow *window : effects->stackingOrder()) {
+            if (window->isDock()) {
+                const QRectF dock = window->frameGeometry();
+                lx = dock.x();
+                ly = dock.y();
+                lw = lh = qMin((int)dock.height(), 48);
+                break;
+            }
+        }
+        if (lx < 0) { lx = 16; ly = 830; } // last resort fallback
+    }
     m_launcherRect = QRect(lx, ly, lw, lh);
 
     // System tray rect (for notifications/popups)
