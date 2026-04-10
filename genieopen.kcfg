@@ -11,5 +11,11 @@
         <entry name="CloseAnimation" type="Bool">
             <default>false</default>
         </entry>
+        <entry name="RestoreAnimation" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="PopupAnimation" type="Bool">
+            <default>true</default>
+        </entry>
     </group>
 </kcfg>

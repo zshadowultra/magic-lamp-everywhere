@@ -17,6 +17,7 @@ struct GenieAnimation {
     EffectWindowVisibleRef visibleRef;
     TimeLine timeLine;
     bool isClose = false;
+    bool isPopup = false;
 };
 
 class GenieOpenEffect : public OffscreenEffect
@@ -46,10 +47,12 @@ private:
     enum IconPosition { Top, Bottom, Left, Right };
 
     std::chrono::milliseconds m_duration;
+    std::chrono::milliseconds m_popupDuration;
     QHash<EffectWindow *, GenieAnimation> m_animations;
     QRect m_launcherRect;
     QRect m_sysTrayRect;
-    bool m_closeEnabled = false;
+    bool m_closeEnabled   = false;
+    bool m_popupEnabled   = true;
 };
 
 } // namespace KWin

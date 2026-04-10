@@ -17,9 +17,9 @@ namespace KWin
 GenieOpenEffect::GenieOpenEffect()
 {
     reconfigure(ReconfigureAll);
-    connect(effects, &EffectsHandler::windowAdded,   this, &GenieOpenEffect::slotWindowAdded);
-    connect(effects, &EffectsHandler::windowClosed,  this, &GenieOpenEffect::slotWindowClosed);
-    connect(effects, &EffectsHandler::windowDeleted, this, &GenieOpenEffect::slotWindowDeleted);
+    connect(effects, &EffectsHandler::windowAdded,        this, &GenieOpenEffect::slotWindowAdded);
+    connect(effects, &EffectsHandler::windowClosed,       this, &GenieOpenEffect::slotWindowClosed);
+    connect(effects, &EffectsHandler::windowDeleted,      this, &GenieOpenEffect::slotWindowDeleted);
     setVertexSnappingMode(RenderGeometry::VertexSnappingMode::None);
 }
 
@@ -62,7 +62,10 @@ void GenieOpenEffect::reconfigure(ReconfigureFlags)
     int sh = cfg.readEntry("SysTrayH", 30);
     m_sysTrayRect = QRect(sx, sy, sw, sh);
 
-    m_closeEnabled = cfg.readEntry("CloseAnimation", false);
+    m_closeEnabled      = cfg.readEntry("CloseAnimation",   false);
+    m_popupEnabled      = cfg.readEntry("PopupAnimation",   true);
+    int popupMs = qBound(50, cfg.readEntry("PopupDuration", 120), 1000);
+    m_popupDuration = std::chrono::milliseconds(static_cast<int>(animationTime(std::chrono::milliseconds(popupMs))));
 }
 
 void GenieOpenEffect::prePaintScreen(ScreenPrePaintData &data, std::chrono::milliseconds presentTime)
@@ -97,8 +100,16 @@ void GenieOpenEffect::apply(EffectWindow *w, int mask, WindowPaintData &data, Wi
 
     IconPosition position = Bottom;
 
+    // For popups/dialogs, expand from cursor position
+    if (it->isPopup) {
+        QPoint pt = cursorPos().toPoint();
+        if      (pt.y() > geo.bottom()) position = Bottom;
+        else if (pt.y() < geo.y())      position = Top;
+        else if (pt.x() < geo.x())      position = Left;
+        else                            position = Right;
+        icon = QRect(pt, QSize(0, 0));
     // For close animations, collapse toward cursor position
-    if (it->isClose) {
+    } else if (it->isClose) {
         QPoint pt = cursorPos().toPoint();
         if (geo.contains(pt)) {
             const int d[2][2] = {{pt.x() - geo.x(), geo.right() - pt.x()},
@@ -304,31 +315,51 @@ void GenieOpenEffect::postPaintScreen()
 
 void GenieOpenEffect::slotWindowAdded(EffectWindow *w)
 {
-    qWarning() << "[GenieOpen] windowAdded:" << w->caption() << "normal:" << w->isNormalWindow() << "popup:" << w->isPopupWindow();
+    qWarning() << "[GenieOpen] windowAdded:" << w->caption() << "class:" << w->windowClass() << "normal:" << w->isNormalWindow() << "popup:" << w->isPopupWindow() << "special:" << w->isSpecialWindow();
 
     if (effects->activeFullScreenEffect())
         return;
-    if (!w->isNormalWindow() && !w->isDialog())
+    if (w->isDesktop() || w->isDock() || w->isSplash() || w->isSpecialWindow())
         return;
-    if (w->isDesktop() || w->isDock() || w->isSplash() || w->isPopupWindow())
+    if (w->isTooltip() || w->isComboBox() || w->isDropdownMenu() || w->isPopupMenu())
         return;
     if (w->width() < 100 || w->height() < 100)
         return;
     if (m_animations.contains(w))
         return;
 
+    const QString wClass = w->windowClass().trimmed().toLower();
+
+    // Skip KWin internal windows (task switcher, desktop grid) — they have empty class
+    if (wClass.isEmpty())
+        return;
+
+    // Skip plasmashell windows (launcher, notifications, panels)
+    if (wClass.contains("plasmashell") || wClass.contains("plasma"))
+        return;
+
+    // Skip kwin's own windows
+    if (wClass.startsWith("kwin"))
+        return;
+
+    const bool isPopup = !w->isNormalWindow() || w->isPopupWindow() || w->isDialog();
+
+    // Skip popup animation if disabled
+    if (isPopup && !m_popupEnabled)
+        return;
+
     qWarning() << "[GenieOpen] Starting animation for:" << w->caption();
 
-    // If already animating, don't toggle — remove and restart cleanly
     if (m_animations.contains(w)) {
         unredirect(w);
         m_animations.remove(w);
     }
 
     GenieAnimation &anim = m_animations[w];
+    anim.isPopup    = isPopup;
     anim.visibleRef = EffectWindowVisibleRef(w, EffectWindow::PAINT_DISABLED_BY_MINIMIZE);
     anim.timeLine.setDirection(TimeLine::Backward);
-    anim.timeLine.setDuration(m_duration);
+    anim.timeLine.setDuration(isPopup ? m_popupDuration : m_duration);
     anim.timeLine.setEasingCurve(QEasingCurve::Linear);
 
     redirect(w);
@@ -339,11 +370,15 @@ void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
 {
     if (!m_closeEnabled || effects->activeFullScreenEffect())
         return;
-    if (w->isDesktop() || w->isDock() || w->isSplash())
+    if (w->isDesktop() || w->isDock() || w->isSplash() || w->isSpecialWindow())
         return;
     if (w->isTooltip() || w->isComboBox() || w->isDropdownMenu() || w->isPopupMenu())
         return;
     if (w->width() < 100 || w->height() < 100)
+        return;
+
+    const QString wClass = w->windowClass().trimmed().toLower();
+    if (wClass.isEmpty() || wClass.contains("plasmashell") || wClass.contains("plasma") || wClass.startsWith("kwin"))
         return;
 
     // Remove any existing open animation for this window
