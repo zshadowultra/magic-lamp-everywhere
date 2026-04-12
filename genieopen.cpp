@@ -311,7 +311,8 @@ void GenieOpenEffect::postPaintScreen()
             ++it;
         }
     }
-    effects->addRepaintFull();
+    if (!m_animations.isEmpty())
+        effects->addRepaintFull();
     effects->postPaintScreen();
 }
 
