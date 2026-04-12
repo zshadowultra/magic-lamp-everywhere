@@ -9,7 +9,7 @@
             <default>0</default>
         </entry>
         <entry name="CloseAnimation" type="Bool">
-            <default>false</default>
+            <default>true</default>
         </entry>
         <entry name="RestoreAnimation" type="Bool">
             <default>true</default>

@@ -38,6 +38,7 @@ target_link_libraries(kwin_genie_open
 )
 
 install(TARGETS kwin_genie_open DESTINATION /usr/lib/qt6/plugins/kwin/effects/plugins)
+install(FILES metadata.json DESTINATION /usr/share/kwin/effects/kwin_genie_open)
 
 #######################################
 # Config KCM
