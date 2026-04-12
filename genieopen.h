@@ -16,8 +16,9 @@ namespace KWin
 struct GenieAnimation {
     EffectWindowVisibleRef visibleRef;
     TimeLine timeLine;
-    bool isClose = false;
-    bool isPopup = false;
+    bool isClose   = false;
+    bool isPopup   = false;
+    QPoint closeCursorPos;
 };
 
 class GenieOpenEffect : public OffscreenEffect

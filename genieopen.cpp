@@ -108,9 +108,9 @@ void GenieOpenEffect::apply(EffectWindow *w, int mask, WindowPaintData &data, Wi
         else if (pt.x() < geo.x())      position = Left;
         else                            position = Right;
         icon = QRect(pt, QSize(0, 0));
-    // For close animations, collapse toward cursor position
+    // For close animations, collapse toward cursor position at time of close
     } else if (it->isClose) {
-        QPoint pt = cursorPos().toPoint();
+        QPoint pt = it->closeCursorPos;
         if (geo.contains(pt)) {
             const int d[2][2] = {{pt.x() - geo.x(), geo.right() - pt.x()},
                                  {pt.y() - geo.y(), geo.bottom() - pt.y()}};
@@ -396,7 +396,8 @@ void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
     }
 
     GenieAnimation &anim = m_animations[w];
-    anim.isClose = true;
+    anim.isClose        = true;
+    anim.closeCursorPos = cursorPos().toPoint();
     w->setData(WindowClosedGrabRole, QVariant::fromValue(static_cast<void*>(this)));
     anim.timeLine.setDirection(TimeLine::Forward);
     anim.timeLine.setDuration(m_duration);
