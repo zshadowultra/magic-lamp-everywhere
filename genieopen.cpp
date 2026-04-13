@@ -128,13 +128,13 @@ void GenieOpenEffect::apply(EffectWindow *w, int mask, WindowPaintData &data, Wi
             pos = Left;
         else
             pos = Right;
-        // Snap icon to the corresponding edge at cursor's lateral position
+        // Push icon just outside the window edge so the genie collapses to a point
         QPoint snapped = pt;
         switch (pos) {
-        case Top:    snapped.setY(geo.y());      break;
-        case Bottom: snapped.setY(geo.bottom()); break;
-        case Left:   snapped.setX(geo.x());      break;
-        case Right:  snapped.setX(geo.right());  break;
+        case Top:    snapped.setY(geo.y() - 1);          break;
+        case Bottom: snapped.setY(geo.bottom() + 1);     break;
+        case Left:   snapped.setX(geo.x() - 1);          break;
+        case Right:  snapped.setX(geo.right() + 1);      break;
         }
         return {pos, QRect(snapped, QSize(0, 0))};
     };
