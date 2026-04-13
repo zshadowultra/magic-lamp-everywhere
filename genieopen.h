@@ -19,6 +19,7 @@ struct GenieAnimation {
     bool isClose   = false;
     bool isPopup   = false;
     QPoint closeCursorPos;
+    QPoint openCursorPos;
 };
 
 class GenieOpenEffect : public OffscreenEffect

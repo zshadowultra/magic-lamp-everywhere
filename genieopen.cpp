@@ -78,6 +78,14 @@ void GenieOpenEffect::prePaintWindow(RenderView *view, EffectWindow *w, WindowPr
 {
     auto it = m_animations.find(w);
     if (it != m_animations.end()) {
+        // If window is being minimized, cancel our animation so the default
+        // Magic Lamp effect can handle the minimize-to-taskbar animation
+        if (!it->isClose && w->isMinimized()) {
+            unredirect(w);
+            m_animations.erase(it);
+            effects->prePaintWindow(view, w, data, presentTime);
+            return;
+        }
         it->timeLine.advance(presentTime);
         data.setTransformed();
     }
@@ -100,37 +108,47 @@ void GenieOpenEffect::apply(EffectWindow *w, int mask, WindowPaintData &data, Wi
 
     IconPosition position = Bottom;
 
-    // For popups/dialogs, expand from cursor position
+    // Helper: given a point (cursor), determine genie direction and snap icon to window edge
+    auto cursorToIcon = [&](QPoint pt) -> std::pair<IconPosition, QRect> {
+        // Determine direction by which quadrant of the window the cursor is in
+        // (works whether cursor is inside or outside the window)
+        const int dx_left  = pt.x() - geo.x();
+        const int dx_right = geo.right() - pt.x();
+        const int dy_top   = pt.y() - geo.y();
+        const int dy_bot   = geo.bottom() - pt.y();
+        // Use signed distances: negative means cursor is outside on that side
+        // Pick the axis with the smallest absolute distance to determine direction
+        // Prefer vertical axis (top/bottom) as genie looks better vertically
+        IconPosition pos;
+        if (std::abs(dy_top) <= std::abs(dy_bot) && std::abs(dy_top) <= std::abs(dx_left) && std::abs(dy_top) <= std::abs(dx_right))
+            pos = Top;
+        else if (std::abs(dy_bot) <= std::abs(dx_left) && std::abs(dy_bot) <= std::abs(dx_right))
+            pos = Bottom;
+        else if (std::abs(dx_left) <= std::abs(dx_right))
+            pos = Left;
+        else
+            pos = Right;
+        // Snap icon to the corresponding edge at cursor's lateral position
+        QPoint snapped = pt;
+        switch (pos) {
+        case Top:    snapped.setY(geo.y());      break;
+        case Bottom: snapped.setY(geo.bottom()); break;
+        case Left:   snapped.setX(geo.x());      break;
+        case Right:  snapped.setX(geo.right());  break;
+        }
+        return {pos, QRect(snapped, QSize(0, 0))};
+    };
+
+    // For popups/dialogs, expand from cursor position at time of open
     if (it->isPopup) {
-        QPoint pt = cursorPos().toPoint();
-        if      (pt.y() > geo.bottom()) position = Bottom;
-        else if (pt.y() < geo.y())      position = Top;
-        else if (pt.x() < geo.x())      position = Left;
-        else                            position = Right;
-        icon = QRect(pt, QSize(0, 0));
+        auto [pos, ic] = cursorToIcon(it->openCursorPos);
+        position = pos;
+        icon = ic;
     // For close animations, collapse toward cursor position at time of close
     } else if (it->isClose) {
-        QPoint pt = it->closeCursorPos;
-        if (geo.contains(pt)) {
-            const int d[2][2] = {{pt.x() - geo.x(), geo.right() - pt.x()},
-                                 {pt.y() - geo.y(), geo.bottom() - pt.y()}};
-            int di = d[1][0]; position = Top;
-            if (d[0][0] < di) { di = d[0][0]; position = Left; }
-            if (d[1][1] < di) { di = d[1][1]; position = Bottom; }
-            if (d[0][1] < di) { position = Right; }
-            switch (position) {
-            case Top:    pt.setY(geo.y());      break;
-            case Left:   pt.setX(geo.x());      break;
-            case Bottom: pt.setY(geo.bottom()); break;
-            case Right:  pt.setX(geo.right());  break;
-            }
-        } else {
-            if      (pt.y() < geo.y())      position = Top;
-            else if (pt.x() < geo.x())      position = Left;
-            else if (pt.y() > geo.bottom()) position = Bottom;
-            else                            position = Right;
-        }
-        icon = QRect(pt, QSize(0, 0));
+        auto [pos, ic] = cursorToIcon(it->closeCursorPos);
+        position = pos;
+        icon = ic;
     } else if (!icon.isValid()) {
         // Choose origin based on window type
         if (w->isNotification() || w->isCriticalNotification() || w->isOnScreenDisplay()) {
@@ -361,8 +379,9 @@ void GenieOpenEffect::slotWindowAdded(EffectWindow *w)
     }
 
     GenieAnimation &anim = m_animations[w];
-    anim.isPopup    = isPopup;
-    anim.visibleRef = EffectWindowVisibleRef(w, EffectWindow::PAINT_DISABLED_BY_MINIMIZE);
+    anim.isPopup      = isPopup;
+    anim.openCursorPos = isPopup ? cursorPos().toPoint() : QPoint();
+    anim.visibleRef   = EffectWindowVisibleRef(w, EffectWindow::PAINT_DISABLED_BY_MINIMIZE);
     anim.timeLine.setDirection(TimeLine::Backward);
     anim.timeLine.setDuration(isPopup ? m_popupDuration : m_duration);
     anim.timeLine.setEasingCurve(QEasingCurve::Linear);
@@ -381,7 +400,7 @@ void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
         return;
     if (w->isTooltip() || w->isComboBox())
         return;
-    if ((w->isDropdownMenu() || w->isPopupMenu()) && !m_popupEnabled)
+    if ((w->isDropdownMenu() || w->isPopupMenu() || w->isPopupWindow()) && !m_popupEnabled)
         return;
 
     const QString wClass = w->windowClass().trimmed().toLower();
