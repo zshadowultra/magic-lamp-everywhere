@@ -17,10 +17,9 @@ namespace KWin
 GenieOpenEffect::GenieOpenEffect()
 {
     reconfigure(ReconfigureAll);
-    connect(effects, &EffectsHandler::windowAdded,       this, &GenieOpenEffect::slotWindowAdded);
-    connect(effects, &EffectsHandler::windowClosed,      this, &GenieOpenEffect::slotWindowClosed);
-    connect(effects, &EffectsHandler::windowDeleted,     this, &GenieOpenEffect::slotWindowDeleted);
-    connect(effects, &EffectsHandler::windowDataChanged, this, &GenieOpenEffect::slotWindowDataChanged);
+    connect(effects, &EffectsHandler::windowAdded,        this, &GenieOpenEffect::slotWindowAdded);
+    connect(effects, &EffectsHandler::windowClosed,       this, &GenieOpenEffect::slotWindowClosed);
+    connect(effects, &EffectsHandler::windowDeleted,      this, &GenieOpenEffect::slotWindowDeleted);
     setVertexSnappingMode(RenderGeometry::VertexSnappingMode::None);
 }
 
@@ -322,6 +321,8 @@ void GenieOpenEffect::postPaintScreen()
     auto it = m_animations.begin();
     while (it != m_animations.end()) {
         if (it->timeLine.done()) {
+            if (it->isClose)
+                it.key()->setData(WindowClosedGrabRole, QVariant());
             unredirect(it.key());
             it = m_animations.erase(it);
         } else {
@@ -397,12 +398,9 @@ void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
 
     if (!m_closeEnabled)
         return;
-    // If another effect already grabbed this window for close, let it handle it
+    if (w->skipsCloseAnimation() || !w->isVisible())
+        return;
     if (w->data(WindowClosedGrabRole).value<void*>() != nullptr)
-        return;
-    if (w->skipsCloseAnimation())
-        return;
-    if (!w->isVisible())
         return;
     if (w->isDesktop() || w->isDock() || w->isSplash() || w->isSpecialWindow())
         return;
@@ -414,9 +412,12 @@ void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
     const QString wClass = w->windowClass().trimmed().toLower();
     if (wClass.contains(QStringLiteral("plasmashell")) || wClass.startsWith(QStringLiteral("kwin")))
         return;
+    if (wClass.isEmpty() && !(w->isPopupWindow() && m_popupEnabled))
+        return;
 
     qWarning() << "[GenieOpen] Starting close animation for:" << w->caption();
 
+    // Remove any existing open animation for this window
     if (m_animations.contains(w)) {
         unredirect(w);
         m_animations.remove(w);
@@ -425,8 +426,7 @@ void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
     GenieAnimation &anim = m_animations[w];
     anim.isClose        = true;
     anim.closeCursorPos = cursorPos().toPoint();
-    anim.deletedRef     = EffectWindowDeletedRef(w);
-    anim.visibleRef     = EffectWindowVisibleRef(w, EffectWindow::PAINT_DISABLED_BY_MINIMIZE);
+    w->setData(WindowClosedGrabRole, QVariant::fromValue(static_cast<void*>(this)));
     anim.timeLine.setDirection(TimeLine::Forward);
     anim.timeLine.setDuration(m_duration);
     anim.timeLine.setEasingCurve(QEasingCurve::Linear);
@@ -440,17 +440,8 @@ void GenieOpenEffect::slotWindowDeleted(EffectWindow *w)
 {
     auto it = m_animations.find(w);
     if (it != m_animations.end()) {
-        unredirect(w);
-        m_animations.erase(it);
-    }
-}
-
-void GenieOpenEffect::slotWindowDataChanged(EffectWindow *w, int role)
-{
-    if (role != WindowAddedGrabRole && role != WindowClosedGrabRole)
-        return;
-    auto it = m_animations.find(w);
-    if (it != m_animations.end()) {
+        if (it->isClose)
+            w->setData(WindowClosedGrabRole, QVariant());
         unredirect(w);
         m_animations.erase(it);
     }
