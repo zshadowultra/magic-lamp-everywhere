@@ -47,6 +47,9 @@ private Q_SLOTS:
 
 private:
     enum IconPosition { Top, Bottom, Left, Right };
+    enum WindowCategory { APP, CONTEXT_MENU, POPUP, EXCLUDED };
+
+    WindowCategory classifyWindow(EffectWindow *w) const;
 
     std::chrono::milliseconds m_duration;
     std::chrono::milliseconds m_popupDuration;
