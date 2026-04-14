@@ -1,5 +1,4 @@
 {
-    "KPackageStructure": "KWin/Effect",
     "KPlugin": {
         "Name": "Magic Lamp Everywhere",
         "Description": "Genie/Magic Lamp animation when windows open",
@@ -10,7 +9,6 @@
             }
         ],
         "Version": "1.0",
-        "Id": "kwin_genie_open",
         "EnabledByDefault": true
     },
     "X-KDE-ConfigModule": "kwin_genieopen_config"
