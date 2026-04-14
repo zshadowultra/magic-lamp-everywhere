@@ -15,6 +15,7 @@ namespace KWin
 
 struct GenieAnimation {
     EffectWindowVisibleRef visibleRef;
+    EffectWindowDeletedRef deletedRef;
     TimeLine timeLine;
     bool isClose   = false;
     bool isPopup   = false;
@@ -44,6 +45,7 @@ private Q_SLOTS:
     void slotWindowAdded(EffectWindow *w);
     void slotWindowClosed(EffectWindow *w);
     void slotWindowDeleted(EffectWindow *w);
+    void slotWindowDataChanged(EffectWindow *w, int role);
 
 private:
     enum IconPosition { Top, Bottom, Left, Right };

@@ -17,9 +17,10 @@ namespace KWin
 GenieOpenEffect::GenieOpenEffect()
 {
     reconfigure(ReconfigureAll);
-    connect(effects, &EffectsHandler::windowAdded,        this, &GenieOpenEffect::slotWindowAdded);
-    connect(effects, &EffectsHandler::windowClosed,       this, &GenieOpenEffect::slotWindowClosed);
-    connect(effects, &EffectsHandler::windowDeleted,      this, &GenieOpenEffect::slotWindowDeleted);
+    connect(effects, &EffectsHandler::windowAdded,       this, &GenieOpenEffect::slotWindowAdded);
+    connect(effects, &EffectsHandler::windowClosed,      this, &GenieOpenEffect::slotWindowClosed);
+    connect(effects, &EffectsHandler::windowDeleted,     this, &GenieOpenEffect::slotWindowDeleted);
+    connect(effects, &EffectsHandler::windowDataChanged, this, &GenieOpenEffect::slotWindowDataChanged);
     setVertexSnappingMode(RenderGeometry::VertexSnappingMode::None);
 }
 
@@ -321,8 +322,6 @@ void GenieOpenEffect::postPaintScreen()
     auto it = m_animations.begin();
     while (it != m_animations.end()) {
         if (it->timeLine.done()) {
-            if (it->isClose)
-                it.key()->setData(WindowClosedGrabRole, QVariant());
             unredirect(it.key());
             it = m_animations.erase(it);
         } else {
@@ -357,7 +356,9 @@ void GenieOpenEffect::slotWindowAdded(EffectWindow *w)
     const QString wClass = w->windowClass().trimmed().toLower();
 
     // Skip KWin internal windows — empty or whitespace-only class
-    if (wClass.trimmed().isEmpty())
+    if (wClass.trimmed().isEmpty() && !m_popupEnabled)
+        return;
+    if (wClass.trimmed().isEmpty() && !w->isPopupWindow())
         return;
 
     // Skip plasmashell windows (launcher, notifications, panels)
@@ -396,6 +397,13 @@ void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
 
     if (!m_closeEnabled)
         return;
+    // If another effect already grabbed this window for close, let it handle it
+    if (w->data(WindowClosedGrabRole).value<void*>() != nullptr)
+        return;
+    if (w->skipsCloseAnimation())
+        return;
+    if (!w->isVisible())
+        return;
     if (w->isDesktop() || w->isDock() || w->isSplash() || w->isSpecialWindow())
         return;
     if (w->isTooltip() || w->isComboBox())
@@ -404,12 +412,11 @@ void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
         return;
 
     const QString wClass = w->windowClass().trimmed().toLower();
-    if (wClass.isEmpty() || wClass.contains(QStringLiteral("plasmashell")) || wClass.startsWith(QStringLiteral("kwin")))
+    if (wClass.contains(QStringLiteral("plasmashell")) || wClass.startsWith(QStringLiteral("kwin")))
         return;
 
     qWarning() << "[GenieOpen] Starting close animation for:" << w->caption();
 
-    // Remove any existing open animation for this window
     if (m_animations.contains(w)) {
         unredirect(w);
         m_animations.remove(w);
@@ -418,7 +425,8 @@ void GenieOpenEffect::slotWindowClosed(EffectWindow *w)
     GenieAnimation &anim = m_animations[w];
     anim.isClose        = true;
     anim.closeCursorPos = cursorPos().toPoint();
-    w->setData(WindowClosedGrabRole, QVariant::fromValue(static_cast<void*>(this)));
+    anim.deletedRef     = EffectWindowDeletedRef(w);
+    anim.visibleRef     = EffectWindowVisibleRef(w, EffectWindow::PAINT_DISABLED_BY_MINIMIZE);
     anim.timeLine.setDirection(TimeLine::Forward);
     anim.timeLine.setDuration(m_duration);
     anim.timeLine.setEasingCurve(QEasingCurve::Linear);
@@ -432,8 +440,17 @@ void GenieOpenEffect::slotWindowDeleted(EffectWindow *w)
 {
     auto it = m_animations.find(w);
     if (it != m_animations.end()) {
-        if (it->isClose)
-            w->setData(WindowClosedGrabRole, QVariant());
+        unredirect(w);
+        m_animations.erase(it);
+    }
+}
+
+void GenieOpenEffect::slotWindowDataChanged(EffectWindow *w, int role)
+{
+    if (role != WindowAddedGrabRole && role != WindowClosedGrabRole)
+        return;
+    auto it = m_animations.find(w);
+    if (it != m_animations.end()) {
         unredirect(w);
         m_animations.erase(it);
     }
