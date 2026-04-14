@@ -75,6 +75,11 @@ GenieOpenEffect::WindowCategory GenieOpenEffect::classifyWindow(EffectWindow *w)
         return EXCLUDED;
     if (w->isTooltip() || w->isComboBox())
         return EXCLUDED;
+    if (w->isOutline() || w->isSkipSwitcher())
+        return EXCLUDED;
+    // If another effect already grabbed this window for open, skip it
+    if (w->data(WindowAddedGrabRole).value<void*>() != nullptr)
+        return EXCLUDED;
     if (w->width() < 50 || w->height() < 50)
         return EXCLUDED;
 
